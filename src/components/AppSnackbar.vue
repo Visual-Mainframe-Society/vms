@@ -11,7 +11,13 @@ watch(isActive, (val) => {
   <v-snackbar v-model="isActive" :color="color" :timeout="timeout" multi-line>
     {{ message }}
     <template #actions>
-      <v-btn variant="text" size="small" @click="isActive = false" icon="mdi-close" />
+      <v-btn
+        variant="text"
+        :color="'on-' + color"
+        size="small"
+        @click="isActive = false"
+        icon="mdi-close"
+      />
     </template>
   </v-snackbar>
 </template>

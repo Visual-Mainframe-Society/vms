@@ -12,12 +12,41 @@ const router = createRouter({
       component: () => import('@/layouts/AppLayout.vue'),
       children: [
         {
-          meta: { requiresAuth: true },
           path: '',
           name: 'home',
           component: () => import('@/views/HomeView.vue'),
         },
+        {
+          path: '/explore',
+          name: 'explore',
+          component: () => import('@/views/ExploreView.vue'),
+        },
+        {
+          path: '/cart',
+          name: 'cart',
+          component: () => import('@/views/HomeView.vue'),
+        },
+        {
+          path: '/notifications',
+          name: 'notifications',
+          component: () => import('@/views/HomeView.vue'),
+        },
+        {
+          path: '/studio',
+          name: 'studio',
+          component: () => import('@/views/StudioView.vue'),
+        },
+        {
+          path: '/account',
+          name: 'account',
+          component: () => import('@/views/AccountView.vue'),
+        },
       ],
+    },
+    {
+      path: '/studio/add-artwork',
+      name: 'add-artwork',
+      component: () => import('@/views/ArtworkAddView.vue'),
     },
   ],
 })

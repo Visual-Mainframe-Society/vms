@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import AppBar from '@/components/AppBar.vue'
-import AppNavigation from '@/components/AppNavigation.vue'
+import AppNavigationDrawer from '@/components/AppNavigationDrawer.vue'
 </script>
 
 <template>
-  <AppBar />
-  <AppNavigation />
+  <AppNavigationDrawer />
   <v-main>
     <RouterView />
   </v-main>

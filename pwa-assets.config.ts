@@ -1,9 +1,8 @@
-// pwa-assets.config.ts
-import { defineConfig, minimalPreset } from '@vite-pwa/assets-generator/config'
+import { defineConfig, minimal2023Preset } from '@vite-pwa/assets-generator/config'
 
 export default defineConfig({
   preset: {
-    ...minimalPreset,
+    ...minimal2023Preset,
     maskable: {
       sizes: [512],
       resizeOptions: { background: '#000000' },
@@ -12,5 +11,5 @@ export default defineConfig({
       sizes: [180],
     },
   },
-  images: ['src/assets/vms.svg'],
+  images: ['public/vms.svg'],
 })

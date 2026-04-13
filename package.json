@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vite preview",
+    "build": "run-s clean generate-pwa type-check build-only",
     "build-only": "vite build",
+    "postbuild": "node -e \"require('fs').writeFileSync('dist/.nojekyll', '')\"",
+    "preview": "vite preview",
     "type-check": "vue-tsc --build",
+    "clean": "node -e \"if (require('fs').existsSync('dist')) require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "generate-pwa": "pwa-assets-generator",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "oxfmt src/"
+    "format": "oxfmt src/",
+    "deploy": "gh-pages -d dist --dotfiles",
+    "ship-it": "run-s build deploy"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -33,6 +38,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.57.0",
     "eslint-plugin-vue": "~10.8.0",
+    "gh-pages": "^6.3.0",
     "install": "^0.13.0",
     "jiti": "^2.6.1",
     "npm": "^11.12.1",
@@ -47,11 +53,8 @@
     "vite-plugin-vue-devtools": "^8.1.1",
     "vue-tsc": "^3.2.6"
   },
-  "engines": {
-    "node": "^20.19.0 || >=22.12.0"
-  },
   "overrides": {
-    "vue": "beta",
+    "@vue/compat": "beta",
     "@vue/compiler-core": "beta",
     "@vue/compiler-dom": "beta",
     "@vue/compiler-sfc": "beta",
@@ -63,6 +66,9 @@
     "@vue/runtime-vapor": "beta",
     "@vue/server-renderer": "beta",
     "@vue/shared": "beta",
-    "@vue/compat": "beta"
+    "vue": "beta"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
   }
 }
