@@ -11,7 +11,7 @@ interface RejectedItem {
   created_at: string
 }
 
-defineProps<{ items: RejectedItem[] }>()
+defineProps<{ items: RejectedItem[]; loading?: boolean }>()
 
 const { mdAndUp } = useDisplay()
 
@@ -25,7 +25,7 @@ const formatDate = (iso: string) =>
 const headers = [
   { title: 'Artwork', key: 'title', align: 'start' as const },
   { title: 'Reason', key: 'notes' },
-  { title: 'Submitted', key: 'created_at' },
+  { title: 'Submitted', key: 'created_at', width: '160px' },
 ]
 </script>
 
@@ -36,25 +36,26 @@ const headers = [
     :headers="headers"
     :items="items"
     :items-per-page="-1"
+    :loading="loading"
     hide-default-footer
     hover
   >
     <template #[`item.title`]="{ item }">
       <div class="d-flex align-center ga-4 py-2">
         <ArtworkThumbnail :src="item.image_urls[0]" />
-        {{ item.title }}
+        <span class="text-body-2 font-weight-medium">{{ item.title }}</span>
       </div>
     </template>
 
     <template #[`item.notes`]="{ item }">
       <div class="d-flex align-center ga-2">
         <v-icon color="error" size="16">mdi-alert-circle-outline</v-icon>
-        <span class="text-medium-emphasis">{{ item.notes ?? '—' }}</span>
+        <span class="text-body-2 text-medium-emphasis">{{ item.notes ?? '—' }}</span>
       </div>
     </template>
 
     <template #[`item.created_at`]="{ item }">
-      <span class="text-medium-emphasis">{{ formatDate(item.created_at) }}</span>
+      <span class="text-body-2 text-medium-emphasis">{{ formatDate(item.created_at) }}</span>
     </template>
 
     <template #no-data>
@@ -71,15 +72,23 @@ const headers = [
         </template>
 
         <template #title>
-          <span class="font-weight-medium">{{ item.title }}</span>
+          <span class="text-body-2 font-weight-medium">{{ item.title }}</span>
         </template>
 
         <template #append>
-          <span class="text-medium-emphasis">{{ formatDate(item.created_at) }}</span>
+          <span class="text-caption text-medium-emphasis">{{ formatDate(item.created_at) }}</span>
         </template>
       </v-list-item>
     </v-list>
 
     <StudioEmptyState v-else icon="mdi-check-circle-outline" text="No rejected submissions" />
   </template>
+
+  <v-alert
+    text="Returned for revision. Please review the curator’s feedback and update the work for resubmission."
+    density="compact"
+    rounded="0"
+    class="text-label-large text-disabled"
+    style="background: transparent !important"
+  />
 </template>

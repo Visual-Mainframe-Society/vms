@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { profile } from 'console'
 const auth = useAuthStore()
 
 const route = useRoute()
@@ -54,10 +55,10 @@ watch(
       :exact="item.to.name === 'home'"
       min-width="0"
     >
-      <template v-if="item.to.name === 'account' && auth.avatarUrl">
+      <template v-if="item.to.name === 'account' && profile.avatarUrl">
         <v-avatar size="24">
           <img
-            :src="auth.avatarUrl"
+            :src="profile.avatarUrl"
             referrerpolicy="no-referrer"
             style="width: 24px; height: 24px; object-fit: cover; border-radius: 50%"
           />

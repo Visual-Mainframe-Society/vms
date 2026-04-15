@@ -88,7 +88,6 @@ export type Database = {
           dimensions_cm: { height: number; width: number; depth?: number } | null
           weight_kg: number | null
           image_url: string | null // ← was image_urls: string[]
-          artwork_id: string | null
           status: 'draft' | 'pending' | 'approved' | 'disapproved'
           notes: string | null
           created_at: string
@@ -117,7 +116,6 @@ export type Database = {
           image_url?: string | null // ← was image_urls?: string[]
           status?: 'draft' | 'pending' | 'approved' | 'disapproved'
           notes?: string | null
-          artwork_id?: string | null
         }
       }
       likes: {

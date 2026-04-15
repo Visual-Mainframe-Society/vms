@@ -2,10 +2,12 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useProfileStore } from '@/stores/profile'
 import { useSignIn } from '@/composables/useSignIn'
 import AppSearch from '@/components/AppSearch.vue'
 
 const auth = useAuthStore()
+const profile = useProfileStore()
 const route = useRoute()
 const { signIn, loading } = useSignIn()
 
@@ -84,9 +86,9 @@ watch(
 
       <v-list-item v-if="auth.isSignedIn" title="Account" :to="{ name: 'account' }" rounded="xl">
         <template #prepend>
-          <v-avatar v-if="auth.avatarUrl" size="24">
+          <v-avatar v-if="profile.avatarUrl" size="24">
             <img
-              :src="auth.avatarUrl"
+              :src="profile.avatarUrl"
               referrerpolicy="no-referrer"
               style="width: 24px; height: 24px; object-fit: cover; border-radius: 50%"
             />

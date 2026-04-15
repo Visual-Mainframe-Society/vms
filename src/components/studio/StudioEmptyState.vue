@@ -3,8 +3,8 @@ defineProps<{ icon: string; text: string }>()
 </script>
 
 <template>
-  <div class="d-flex flex-column align-center py-12 text-medium-emphasis">
-    <v-icon size="40" class="mb-3">{{ icon }}</v-icon>
-    <span class="text-body-2">{{ text }}</span>
+  <div class="d-flex flex-column align-center py-4 ga-2 text-medium-emphasis">
+    <v-icon size="36" >{{ icon }}</v-icon>
+    <span >{{ text }}</span>
   </div>
 </template>

@@ -14,11 +14,14 @@ interface Item {
 const props = defineProps<{
   items: Item[]
   tab: 'public' | 'pending' | 'unlisted'
+  togglingId?: string | null
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
   unlist: [id: string]
   makePublic: [id: string]
+  edit: [id: string]
 }>()
 
 const { mdAndUp } = useDisplay()
@@ -45,7 +48,6 @@ function headers() {
   ]
 }
 
-// Fixed: Using the specific union type as the key instead of generic 'string'
 const emptyIcon: Record<typeof props.tab, string> = {
   public: 'mdi-storefront-outline',
   pending: 'mdi-clock-outline',
@@ -57,14 +59,25 @@ const emptyText: Record<typeof props.tab, string> = {
   pending: 'No submissions pending review',
   unlisted: 'No unlisted artworks',
 }
+
+const tabInfo: Partial<Record<typeof props.tab, string>> = {
+  public:
+    'Curated for the gallery. This work is now live for collectors and visible on your profile.',
+  pending:
+    'Under curatorial review. You will be notified once the Society has verified the submission.',
+  unlisted:
+    'Unlisted from public curation. The digital entry is hidden, though the link remains active. Physical status is unaffected.',
+}
 </script>
 
 <template>
+  <!-- Desktop -->
   <v-data-table
     v-if="mdAndUp"
     :headers="headers()"
     :items="items"
     :items-per-page="-1"
+    :loading="loading"
     hide-default-footer
     hover
   >
@@ -84,32 +97,36 @@ const emptyText: Record<typeof props.tab, string> = {
     </template>
 
     <template #[`item.actions`]="{ item }">
-      <v-tooltip
-        v-if="tab === 'public' || tab === 'unlisted'"
-        :text="tab === 'public' ? 'Hide from gallery' : 'Make visible in gallery'"
-        location="bottom"
-      >
-        <template #activator="{ props: tooltipProps }">
+      <v-menu location="bottom end">
+        <template #activator="{ props: menuProps }">
           <v-btn
-            v-if="tab === 'public'"
-            v-bind="tooltipProps"
-            icon="mdi-eye-off-outline"
+            v-bind="menuProps"
+            icon="mdi-dots-vertical"
             variant="text"
             size="small"
-            color="warning"
-            @click="emit('unlist', item.id)"
-          />
-          <v-btn
-            v-else-if="tab === 'unlisted'"
-            v-bind="tooltipProps"
-            icon="mdi-eye-outline"
-            variant="text"
-            size="small"
-            color="success"
-            @click="emit('makePublic', item.id)"
+            :loading="togglingId === item.id"
           />
         </template>
-      </v-tooltip>
+        <v-list density="compact" min-width="160">
+          <v-list-item
+            prepend-icon="mdi-pencil-outline"
+            title="Edit"
+            @click="emit('edit', item.id)"
+          />
+          <v-list-item
+            v-if="tab === 'public'"
+            prepend-icon="mdi-eye-off-outline"
+            title="Hide from gallery"
+            @click="emit('unlist', item.id)"
+          />
+          <v-list-item
+            v-else-if="tab === 'unlisted'"
+            prepend-icon="mdi-eye-outline"
+            title="Make public"
+            @click="emit('makePublic', item.id)"
+          />
+        </v-list>
+      </v-menu>
     </template>
 
     <template #no-data>
@@ -117,6 +134,7 @@ const emptyText: Record<typeof props.tab, string> = {
     </template>
   </v-data-table>
 
+  <!-- Mobile -->
   <template v-else>
     <v-list v-if="items.length" lines="three">
       <v-list-item v-for="item in items" :key="item.id" :subtitle="formatPrice(item.price)">
@@ -129,39 +147,53 @@ const emptyText: Record<typeof props.tab, string> = {
         </template>
 
         <template #append>
-          <v-tooltip v-if="tab === 'public'" text="Hide from gallery" location="left">
-            <template #activator="{ props: tooltipProps }">
+          <template v-if="tab === 'pending'">
+            <span class="text-caption text-medium-emphasis">{{ formatDate(item.created_at) }}</span>
+          </template>
+
+          <v-menu v-else location="bottom end">
+            <template #activator="{ props: menuProps }">
               <v-btn
-                v-bind="tooltipProps"
-                icon="mdi-eye-off-outline"
+                v-bind="menuProps"
+                icon="mdi-dots-vertical"
                 variant="text"
                 size="small"
-                color="warning"
+                :loading="togglingId === item.id"
+              />
+            </template>
+            <v-list density="compact" min-width="160">
+              <v-list-item
+                prepend-icon="mdi-pencil-outline"
+                title="Edit"
+                @click="emit('edit', item.id)"
+              />
+              <v-list-item
+                v-if="tab === 'public'"
+                prepend-icon="mdi-eye-off-outline"
+                title="Hide from gallery"
                 @click="emit('unlist', item.id)"
               />
-            </template>
-          </v-tooltip>
-
-          <v-tooltip v-else-if="tab === 'unlisted'" text="Make visible in gallery" location="left">
-            <template #activator="{ props: tooltipProps }">
-              <v-btn
-                v-bind="tooltipProps"
-                icon="mdi-eye-outline"
-                variant="text"
-                size="small"
-                color="success"
+              <v-list-item
+                v-else-if="tab === 'unlisted'"
+                prepend-icon="mdi-eye-outline"
+                title="Make public"
                 @click="emit('makePublic', item.id)"
               />
-            </template>
-          </v-tooltip>
-
-          <span v-else class="text-caption text-medium-emphasis">
-            {{ formatDate(item.created_at) }}
-          </span>
+            </v-list>
+          </v-menu>
         </template>
       </v-list-item>
     </v-list>
 
     <StudioEmptyState v-else :icon="emptyIcon[tab]" :text="emptyText[tab]" />
   </template>
+
+  <v-alert
+    v-if="tabInfo[tab]"
+    :text="tabInfo[tab]"
+    density="compact"
+    rounded="0"
+    class="text-label-large text-disabled"
+    style="background: transparent !important"
+  />
 </template>
