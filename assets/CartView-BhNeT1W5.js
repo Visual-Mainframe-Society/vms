@@ -1,0 +1,1 @@
+import{Ht as e,Rt as t,sn as n,xn as r}from"./dimensions-C2lEa9NI.js";import{t as i}from"./VContainer-BbFu4eqm.js";import{t as a}from"./_plugin-vue_export-helper-wWd1d_wx.js";var o={};function s(a,o){return n(),t(i,null,{default:r(()=>[...o[0]||=[e(` This is cart`,-1)]]),_:1})}var c=a(o,[[`render`,s]]);export{c as default};

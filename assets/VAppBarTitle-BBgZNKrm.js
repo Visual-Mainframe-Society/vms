@@ -1,1 +1,0 @@
-import{Qt as e,Wt as t,f as n,h as r}from"./VContainer-D5gYOfAa.js";import{i,r as a}from"./VToolbar-StPn2Ytp.js";var o=r()({name:`VAppBarTitle`,props:i(),setup(r,{slots:i}){return n(()=>t(a,e(r,{class:`v-app-bar-title`}),i)),{}}});export{o as t};

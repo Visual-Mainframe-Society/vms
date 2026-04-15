@@ -1,0 +1,1 @@
+import{Ut as e,Zt as t,d as n,m as r,ut as i,x as a}from"./dimensions-C2lEa9NI.js";import{n as o,t as s}from"./VBtn-B5E6H-jt.js";var c=a({...i(o({icon:`$menu`,variant:`text`}),[`spaced`])},`VAppBarNavIcon`),l=r()({name:`VAppBarNavIcon`,props:c(),setup(r,{slots:i}){return n(()=>e(s,t(r,{class:[`v-app-bar-nav-icon`]}),i)),{}}});export{l as t};
