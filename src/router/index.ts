@@ -36,6 +36,11 @@ const router = createRouter({
           meta: { requiresAuth: true },
           component: () => import('@/views/AccountView.vue'),
         },
+        {
+          path: '/artwork/:id',
+          name: 'artwork-detail',
+          component: () => import('@/views/ArtworkDetailView.vue'),
+        },
       ],
     },
     {
