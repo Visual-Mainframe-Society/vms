@@ -1,0 +1,1 @@
+import{Sn as e,Ut as t,cn as n,t as r,zt as i}from"./VContainer-D5gYOfAa.js";import{t as a}from"./_plugin-vue_export-helper-CuYkprrC.js";var o={};function s(a,o){return n(),i(r,null,{default:e(()=>[...o[0]||=[t(` This is notif`,-1)]]),_:1})}var c=a(o,[[`render`,s]]);export{c as default};
