@@ -1,1 +1,0 @@
-import{Ut as e,Zt as t,d as n,m as r}from"./dimensions-C2lEa9NI.js";import{i,r as a}from"./VToolbar-hFpnmCq3.js";var o=r()({name:`VAppBarTitle`,props:i(),setup(r,{slots:i}){return n(()=>e(a,t(r,{class:`v-app-bar-title`}),i)),{}}});export{o as t};
