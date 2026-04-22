@@ -9,6 +9,7 @@ import AppSearch from '@/components/AppSearch.vue'
 const auth = useAuthStore()
 const profile = useProfileStore()
 const route = useRoute()
+// loading is the shared module-level ref — reflects state from any sign-in button
 const { signIn, loading } = useSignIn()
 
 const searchOpen = ref(false)
@@ -67,6 +68,7 @@ watch(
         prepend-icon="mdi-magnify"
         title="Search"
         rounded="xl"
+        :disabled="loading"
         @click="searchOpen = true"
       />
 
@@ -76,6 +78,7 @@ watch(
           :to="item.to"
           :title="item.title"
           :exact="item.to.name === 'home'"
+          :disabled="loading"
           rounded="xl"
         >
           <template #prepend>
@@ -84,7 +87,13 @@ watch(
         </v-list-item>
       </template>
 
-      <v-list-item v-if="auth.isSignedIn" title="Account" :to="{ name: 'account' }" rounded="xl">
+      <v-list-item
+        v-if="auth.isSignedIn"
+        title="Account"
+        :to="{ name: 'account' }"
+        :disabled="loading"
+        rounded="xl"
+      >
         <template #prepend>
           <v-avatar v-if="profile.avatarUrl" size="24">
             <img
@@ -104,7 +113,7 @@ watch(
           <v-icon class="opacity-100">mdi-google</v-icon>
         </template>
         <template #title>
-          <span :class="loading ? 'text-flashing' : ''">{{
+          <span :class="{ 'text-flashing': loading }">{{
             loading ? 'Signing in...' : 'Sign in'
           }}</span>
         </template>

@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabaseClient'
 import type { Session, Subscription } from '@supabase/supabase-js'
 import { useProfileStore } from './profile'
 import { useArtworkDraftStore } from './artworkDraft'
+import { useCartStore } from './cart'
+import { useNotifier } from '@/composables/useNotifier'
 
 export const useAuthStore = defineStore('auth', () => {
   const session = ref<Session | null>(null)
@@ -17,7 +19,6 @@ export const useAuthStore = defineStore('auth', () => {
   const email = computed(() => user.value?.email ?? null)
 
   function init() {
-    // Clean up any existing subscription before creating a new one
     authSubscription?.unsubscribe()
 
     supabase.auth.getSession().then(({ data }) => {
@@ -39,17 +40,20 @@ export const useAuthStore = defineStore('auth', () => {
   async function signOut() {
     if (isSigningOut.value) return
 
+    const { notify } = useNotifier()
     isSigningOut.value = true
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
 
-      const profileStore = useProfileStore()
-      const draftStore = useArtworkDraftStore()
-      profileStore.clear()
-      draftStore.clear()
+      session.value = null
+
+      useProfileStore().clear()
+      useArtworkDraftStore().clear()
+      useCartStore().clear()
     } catch (err) {
       console.error('Sign out failed:', err)
+      notify({ message: err instanceof Error ? err.message : 'Sign out failed', color: 'error' })
       throw err
     } finally {
       isSigningOut.value = false

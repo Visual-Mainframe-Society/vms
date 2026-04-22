@@ -46,11 +46,13 @@ const router = createRouter({
     {
       path: '/studio/add-artwork',
       name: 'add-artwork',
+      meta: { requiresAuth: true },
       component: () => import('@/views/ArtworkAddView.vue'),
     },
     {
       path: '/studio/edit/:id',
       name: 'edit-artwork',
+      meta: { requiresAuth: true },
       component: () => import('@/views/ArtworkEditView.vue'),
     },
     // ── Admin ──────────────────────────────────────────────────────────────────
@@ -66,6 +68,11 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/404View.vue'),
+    },
   ],
 })
 
@@ -74,25 +81,15 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   const profileStore = useProfileStore()
-
   const { ready: authReady } = storeToRefs(authStore)
   const { ready: profileReady } = storeToRefs(profileStore)
 
-  if (!authReady.value) {
-    await until(authReady).toBe(true)
-  }
+  if (!authReady.value) await until(authReady).toBe(true)
+  if (!profileReady.value) await until(profileReady).toBe(true)
 
-  if (!profileReady.value) {
-    await until(profileReady).toBe(true)
-  }
-
-  if (to.name === 'add-artwork' && !authStore.isSignedIn) {
-    return { name: 'account' }
-  }
-
-  if (to.name === 'edit-artwork' && !authStore.isSignedIn) {
-    return { name: 'account' }
-  }
+  // Only these two need redirecting — they live outside layouts with no fallback UI
+  if (to.name === 'add-artwork' && !authStore.isSignedIn) return { name: 'account' }
+  if (to.name === 'edit-artwork' && !authStore.isSignedIn) return { name: 'account' }
 })
 
 export default router

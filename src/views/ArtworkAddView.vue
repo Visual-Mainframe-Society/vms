@@ -1,37 +1,34 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useArtworkDraftStore } from '@/stores/artworkDraft'
-import { useUploadRequest } from '@/composables/useUploadRequest'
-import { useNotifier } from '@/composables/useNotifier'
+import { ref, computed, onMounted } from 'vue'
+import { useArtworkSubmission } from '@/composables/useArtworkSubmission'
+import { calcArtistReceives, calcCommission } from '@/lib/constants'
+import { formatPrice } from '@/lib/formatters'
+import { required, positiveNumber } from '@/lib/rules'
 
-const { notify } = useNotifier()
-const router = useRouter()
-const route = useRoute()
-const draftStore = useArtworkDraftStore()
-const { save: saveRequest, remove: removeRequest } = useUploadRequest()
+const {
+  fields,
+  files,
+  savedImageUrl,
+  saving,
+  savingDraft,
+  discarding,
+  showDraftDialog,
+  restoreDraft,
+  handleBack,
+  saveDraftAndLeave,
+  discardAndLeave,
+  handleSubmit,
+} = useArtworkSubmission()
 
-// ── Form state ────────────────────────────────────────────────────────────────
+// ── Form ref ──────────────────────────────────────────────────────────────────
 
 const form = ref()
 
-const fields = reactive({
-  title: '',
-  description: '',
-  price: null as number | null,
-  height: null as number | null,
-  width: null as number | null,
-  depth: null as number | null,
-})
+onMounted(restoreDraft)
 
-// ── Image state ───────────────────────────────────────────────────────────────
+// ── Image validation ──────────────────────────────────────────────────────────
 
-const files = ref<File[]>([])
 const imageTouched = ref(false)
-const savedImageUrl = ref<string | null>(null)
-const saving = ref(false)
-const savingDraft = ref(false)
-const discarding = ref(false)
 
 const imageError = computed(() => {
   if (!imageTouched.value) return null
@@ -40,181 +37,43 @@ const imageError = computed(() => {
   return null
 })
 
-// ── Draft restore ─────────────────────────────────────────────────────────────
+// ── Commission display ────────────────────────────────────────────────────────
 
-const activeDraftId = ref<string | null>(null)
-
-onMounted(async () => {
-  const draftId = route.query.draftId as string | undefined
-  if (!draftId) return
-
-  const match = draftStore.drafts.find((d) => d.id === draftId)
-  if (!match) return
-
-  activeDraftId.value = match.id
-  Object.assign(fields, {
-    title: match.title,
-    description: match.description,
-    price: match.price,
-    height: match.height,
-    width: match.width,
-    depth: match.depth,
-  })
-  savedImageUrl.value = match.imageUrl
-
-  if (match.imageUrl) {
-    try {
-      const res = await fetch(match.imageUrl)
-      const blob = await res.blob()
-      const filename = match.imageUrl.split('/').pop() ?? 'reference'
-      files.value = [new File([blob], filename, { type: blob.type })]
-    } catch {
-      // fetch failed — savedImageUrl still set so composable won't re-upload
-    }
-  }
-})
-
-// ── Commission ────────────────────────────────────────────────────────────────
-
-const COMMISSION_RATE = 0.3
-
-const commission = computed(() =>
-  fields.price ? Math.round(fields.price * COMMISSION_RATE) : null,
-)
-
-const artistReceives = computed(() =>
-  fields.price ? Math.round(fields.price * (1 - COMMISSION_RATE)) : null,
-)
-
-const formatINR = (n: number) => `₹${n.toLocaleString('en-IN')}`
-
-// ── Validation rules ──────────────────────────────────────────────────────────
-
-const required = (v: unknown) => (v !== '' && v !== null && v !== undefined) || 'Required'
-const positiveNumber = (v: unknown) => (v !== null && Number(v) > 0) || 'Must be greater than 0'
-
-// ── Draft dialog ──────────────────────────────────────────────────────────────
-
-const showDraftDialog = ref(false)
-
-function hasData() {
-  return (
-    fields.title ||
-    fields.description ||
-    fields.price ||
-    fields.height ||
-    fields.width ||
-    files.value.length > 0 ||
-    savedImageUrl.value
-  )
-}
-
-function buildPayload(status: 'draft' | 'pending') {
-  return {
-    draftId: activeDraftId.value,
-    title: fields.title.trim(),
-    description: fields.description.trim() || null,
-    price: fields.price,
-    dimensions_cm:
-      fields.height && fields.width
-        ? {
-            height: fields.height,
-            width: fields.width,
-            ...(fields.depth ? { depth: fields.depth } : {}),
-          }
-        : null,
-    imageFile: files.value[0] ?? null,
-    existingImageUrl: savedImageUrl.value,
-    status,
-  }
-}
-
-function handleBack() {
-  if (hasData()) showDraftDialog.value = true
-  else router.back()
-}
-
-async function saveDraftAndLeave() {
-  savingDraft.value = true
-  try {
-    const { id, imageUrl } = await saveRequest(buildPayload('draft'))
-    draftStore.upsertDraft({
-      id,
-      title: fields.title,
-      description: fields.description,
-      price: fields.price,
-      height: fields.height,
-      width: fields.width,
-      depth: fields.depth,
-      imageUrl,
-    })
-  } catch (e) {
-    notify({ message: e instanceof Error ? e.message : 'Failed to save draft', color: 'error' })
-  } finally {
-    savingDraft.value = false
-    showDraftDialog.value = false
-    router.back()
-  }
-}
-
-async function discardAndLeave() {
-  if (activeDraftId.value) {
-    discarding.value = true
-    try {
-      await removeRequest(activeDraftId.value)
-      draftStore.removeDraft(activeDraftId.value)
-    } catch (e) {
-      notify({
-        message: e instanceof Error ? e.message : 'Failed to discard draft',
-        color: 'error',
-      })
-    } finally {
-      discarding.value = false
-    }
-  }
-  showDraftDialog.value = false
-  router.back()
-}
+const commission = computed(() => (fields.price ? calcCommission(fields.price) : null))
+const artistReceives = computed(() => (fields.price ? calcArtistReceives(fields.price) : null))
 
 // ── Submit ────────────────────────────────────────────────────────────────────
 
-async function handleSubmit() {
+async function onSubmit() {
   imageTouched.value = true
-  const { valid } = await form.value.validate()
-  if (!valid || (files.value.length === 0 && !savedImageUrl.value)) return
-
-  saving.value = true
-  try {
-    await saveRequest(buildPayload('pending'))
-    if (activeDraftId.value) draftStore.removeDraft(activeDraftId.value)
-    router.back()
-  } catch (e) {
-    notify({ message: e instanceof Error ? e.message : 'Failed to submit artwork', color: 'error' })
-  } finally {
-    saving.value = false
-  }
+  await handleSubmit(form.value)
 }
 </script>
 
 <template>
   <v-app-bar flat border="b">
-    <v-btn icon="mdi-arrow-left" variant="text" @click="handleBack" />
-    <v-app-bar-title class="font-weight-bold">New Artwork</v-app-bar-title>
+    <template #prepend>
+      <v-btn icon="mdi-arrow-left" variant="text" @click="handleBack" />
+    </template>
+    <v-app-bar-title>
+      <span class="font-weight-bold text-label-large text-medium-emphasis">NEW</span>
+    </v-app-bar-title>
     <template #append>
       <v-btn
         color="primary"
         variant="flat"
         class="mr-2"
         rounded="lg"
-        @click="handleSubmit"
         :loading="saving"
+        @click="onSubmit"
       >
         Send to Curation
       </v-btn>
     </template>
   </v-app-bar>
+
   <v-main>
-    <!-- ── Draft dialog ─────────────────────────────────────────────────────── -->
+    <!-- ── Draft dialog ───────────────────────────────────────────────────── -->
     <v-dialog v-model="showDraftDialog" max-width="400">
       <v-card rounded="xl">
         <v-card-title class="pt-6 px-6 font-weight-bold">Save as draft?</v-card-title>
@@ -225,22 +84,20 @@ async function handleSubmit() {
           <v-btn
             variant="outlined"
             rounded="lg"
-            @click="discardAndLeave"
             :loading="discarding"
             :disabled="savingDraft"
+            @click="discardAndLeave"
           >
             Discard
           </v-btn>
-
           <v-spacer />
-
           <v-btn
             color="primary"
             variant="flat"
             rounded="lg"
-            @click="saveDraftAndLeave"
             :loading="savingDraft"
             :disabled="discarding"
+            @click="saveDraftAndLeave"
           >
             Save Draft
           </v-btn>
@@ -251,8 +108,8 @@ async function handleSubmit() {
     <v-container>
       <v-row justify="center">
         <v-col cols="12" md="8">
-          <v-form ref="form" @submit.prevent="handleSubmit">
-            <!-- ── Artist's Reference ──────────────────────────────────────────── -->
+          <v-form ref="form" @submit.prevent="onSubmit">
+            <!-- ── Artist's Reference ─────────────────────────────────────── -->
             <div class="text-title-medium font-weight-bold mb-1">Artist's Reference</div>
             <div class="text-title-small text-medium-emphasis mb-4">
               Please provide a photo of the work. This serves as our primary reference for
@@ -265,8 +122,8 @@ async function handleSubmit() {
               density="compact"
               variant="compact"
               icon="mdi-camera-plus"
-              title="Upload a reference photo"
-              browse-text="Browse Images"
+              title="Add a photo"
+              browse-text="Change"
               inset-file-list
               accept="image/*"
               :disabled="saving"
@@ -276,7 +133,7 @@ async function handleSubmit() {
 
             <v-divider class="my-8" />
 
-            <!-- ── About the Work ─────────────────────────────────────────────── -->
+            <!-- ── About the Work ─────────────────────────────────────────── -->
             <div class="text-title-medium font-weight-bold mb-4">About the Work</div>
 
             <v-text-field
@@ -303,7 +160,7 @@ async function handleSubmit() {
 
             <v-divider class="my-8" />
 
-            <!-- ── Price ──────────────────────────────────────────────────────── -->
+            <!-- ── Price ──────────────────────────────────────────────────── -->
             <div class="text-title-medium font-weight-bold mb-4">Price</div>
 
             <v-row align="center">
@@ -335,7 +192,7 @@ async function handleSubmit() {
                           class="font-weight-bold"
                           :class="artistReceives ? 'text-success' : ''"
                         >
-                          {{ artistReceives ? formatINR(artistReceives) : '—' }}
+                          {{ artistReceives ? formatPrice(artistReceives) : '—' }}
                         </span>
                       </template>
                     </v-list-item>
@@ -343,9 +200,9 @@ async function handleSubmit() {
                     <v-list-item>
                       <v-list-item-title>Society Contribution (30%)</v-list-item-title>
                       <template #append>
-                        <span class="font-weight-medium">{{
-                          commission ? formatINR(commission) : '—'
-                        }}</span>
+                        <span class="font-weight-medium">
+                          {{ commission ? formatPrice(commission) : '—' }}
+                        </span>
                       </template>
                     </v-list-item>
                   </v-list>
@@ -355,7 +212,7 @@ async function handleSubmit() {
 
             <v-divider class="my-8" />
 
-            <!-- ── Physical Dimensions ────────────────────────────────────────── -->
+            <!-- ── Physical Dimensions ────────────────────────────────────── -->
             <div class="text-title-medium font-weight-bold mb-1">Physical Dimensions</div>
             <div class="text-title-small text-medium-emphasis mb-4">In centimetres</div>
 

@@ -3,9 +3,10 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArtworkDraftStore } from '@/stores/artworkDraft'
 import { useNotifier } from '@/composables/useNotifier'
-import ArtworkThumbnail from './ArtworkThumbnail.vue'
+import ArtworkThumbnail from './BaseThumbnail.vue'
 import StudioEmptyState from './StudioEmptyState.vue'
 import { useUploadRequest } from '@/composables/useUploadRequest'
+import { formatPrice } from '@/lib/formatters'
 
 const { remove } = useUploadRequest()
 
@@ -35,10 +36,6 @@ const headers = [
   { title: 'Price', key: 'price', width: '140px' },
   { title: '', key: 'actions', sortable: false, align: 'end' as const, width: '60px' },
 ]
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-const formatPrice = (n: number | null) => (n == null ? '—' : `₹${n.toLocaleString('en-IN')}`)
 
 // ── Actions ────────────────────────────────────────────────────────────────────
 

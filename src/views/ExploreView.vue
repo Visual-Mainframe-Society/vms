@@ -1,24 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { storeToRefs } from 'pinia' // ← NEW
 import { useDisplay } from 'vuetify'
 import { MasonryWall } from '@yeger/vue-masonry-wall'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
-import { useExplorePreferences } from '@/stores/explore' // ← NEW
+import type { ArtworkCard } from '@/types'
+import { useExplorePreferences } from '@/composables/useExplorePreferences'
+
+const { showAvailableOnly, gridSize } = useExplorePreferences()
 
 const router = useRouter()
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface ArtworkCard {
-  id: string
-  title: string
-  image_urls: [string, ...string[]]
-  price: number
-  is_available: boolean
-  profiles: { username: string }
-}
 
 interface SkeletonItem {
   id: number
@@ -37,18 +28,12 @@ const error = ref(false)
 
 // ── Preferences store ────────────────────────────────────────────────────────
 
-const prefs = useExplorePreferences()
-const { showAvailableOnly, gridSize } = storeToRefs(prefs)
-
 // ── Grid size ────────────────────────────────────────────────────────────────
 
 const { xs, smAndDown } = useDisplay()
 
 const columnWidth = computed(() => (gridSize.value === 'large' ? 300 : 180))
 
-// Responsive column counts
-//   large:  mobile=1  tablet=2  desktop=3
-//   small:  mobile=2  tablet=3  desktop=4
 const minColumns = computed(() =>
   gridSize.value === 'large' ? (xs.value ? 1 : 2) : xs.value ? 2 : 2,
 )
@@ -138,12 +123,20 @@ async function reset(): Promise<void> {
 reset()
 watch(showAvailableOnly, reset)
 
-// ── Tap overlay ───────────────────────────────────────────────────────────────
+// ── Bottom sheet ──────────────────────────────────────────────────────────────
 
-const activeId = ref<string | null>(null)
+const sheet = ref(false)
+const selectedArtwork = ref<ArtworkCard | null>(null)
 
-function onCellClick(artwork: ArtworkCard): void {
-  activeId.value = activeId.value === artwork.id ? null : artwork.id
+function openSheet(artwork: ArtworkCard): void {
+  selectedArtwork.value = artwork
+  sheet.value = true
+}
+
+function navigateToDetail(): void {
+  if (!selectedArtwork.value) return
+  sheet.value = false
+  router.push({ name: 'artwork-detail', params: { id: selectedArtwork.value.id } })
 }
 
 // ── Skeletons ─────────────────────────────────────────────────────────────────
@@ -186,7 +179,7 @@ const skeletonItems: SkeletonItem[] = [260, 340, 200, 420, 280, 310, 380, 230].m
     </template>
   </v-app-bar>
 
-  <v-container fluid class="pa-2" style="isolation: isolate">
+  <v-container fluid class="pa-2">
     <!-- Initial skeleton -->
     <MasonryWall
       v-if="initialLoading"
@@ -232,54 +225,12 @@ const skeletonItems: SkeletonItem[] = [260, 340, 200, 420, 280, 310, 380, 230].m
         :max-columns="maxColumns"
       >
         <template #default="{ item: artwork }: { item: ArtworkCard }">
-          <div style="position: relative; cursor: pointer" @click="onCellClick(artwork)">
+          <div v-ripple style="cursor: pointer; overflow: hidden" @click="openSheet(artwork)">
             <img
               :src="artwork.image_urls[0]"
               :alt="artwork.title"
               style="display: block; width: 100%; height: auto"
             />
-
-            <v-overlay
-              :model-value="activeId === artwork.id"
-              contained
-              :opacity="0.7"
-              :content-props="{ style: 'width: 100%; height: 100%;' }"
-            >
-              <div class="d-flex flex-column justify-space-between h-100 w-100">
-                <div>
-                  <v-chip
-                    v-if="!artwork.is_available"
-                    color="info"
-                    variant="outlined"
-                    rounded="xl"
-                    class="ma-2"
-                  >
-                    Sold
-                  </v-chip>
-                </div>
-
-                <v-card color="transparent" elevation="0">
-                  <template #title>
-                    <span class="text-label-large">{{ artwork.profiles.username }}</span>
-                  </template>
-                  <template #subtitle>
-                    <span class="text-label-medium">
-                      ₹{{ artwork.price.toLocaleString('en-IN') }}
-                    </span>
-                  </template>
-                  <template #append>
-                    <v-btn
-                      icon="mdi-open-in-new"
-                      variant="text"
-                      size="small"
-                      @click.stop="
-                        router.push({ name: 'artwork-detail', params: { id: artwork.id } })
-                      "
-                    ></v-btn>
-                  </template>
-                </v-card>
-              </div>
-            </v-overlay>
           </div>
         </template>
       </MasonryWall>
@@ -291,4 +242,74 @@ const skeletonItems: SkeletonItem[] = [260, 340, 200, 420, 280, 310, 380, 230].m
       </template>
     </v-infinite-scroll>
   </v-container>
+
+  <!-- Artwork bottom sheet -->
+  <v-bottom-sheet v-model="sheet" :max-width="!$vuetify.display.mobile ? '50% ' : '100%'">
+    <v-card v-if="selectedArtwork" rounded="t-xl" elevation="0">
+      <div style="width: 100%; aspect-ratio: 4 / 5; overflow: hidden; position: relative">
+        <img
+          :src="selectedArtwork.image_urls[0]"
+          aria-hidden="true"
+          style="
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: blur(24px) brightness(0.7);
+            transform: scale(1.1);
+          "
+        />
+        <img
+          :src="selectedArtwork.image_urls[0]"
+          :alt="selectedArtwork.title"
+          style="position: relative; display: block; width: 100%; height: 100%; object-fit: contain"
+        />
+      </div>
+
+      <v-card-item class="pt-5 pb-2">
+        <template #prepend>
+          <div>
+            <v-card-title class="text-title-medium pa-0">
+              {{ selectedArtwork.title }}
+            </v-card-title>
+            <v-card-subtitle class="text-body-medium pa-0 mt-1">
+              {{ selectedArtwork.profiles.username }}
+            </v-card-subtitle>
+          </div>
+        </template>
+        <template #append>
+          <div class="d-flex flex-column align-end ga-1">
+            <v-chip
+              v-if="!selectedArtwork.is_available"
+              color="error"
+              variant="flat"
+              size="small"
+              label
+            >
+              <v-icon start>mdi-close-circle-outline</v-icon>
+              Sold
+            </v-chip>
+            <span class="text-title-medium">
+              ₹{{ selectedArtwork.price.toLocaleString('en-IN') }}
+            </span>
+          </div>
+        </template>
+      </v-card-item>
+
+      <v-card-actions class="px-4 pb-6">
+        <v-btn icon="mdi-close" variant="tonal" @click="sheet = false" />
+        <v-btn
+          class="flex-grow-1"
+          variant="tonal"
+          append-icon="mdi-open-in-new"
+          color="info"
+          size="large"
+          @click="navigateToDetail"
+        >
+          View artwork
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-bottom-sheet>
 </template>

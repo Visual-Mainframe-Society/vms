@@ -1,83 +1,62 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAsyncState } from '@vueuse/core'
+import { useRouteParams } from '@vueuse/router'
 import { supabase } from '@/lib/supabaseClient'
 import { useNotifier } from '@/composables/useNotifier'
-import ArtworkImageManager from '@/components/studio/ArtworkImageManager.vue'
+import { calcArtistReceives, calcCommission } from '@/lib/constants'
+import { formatPrice } from '@/lib/formatters'
+import { required, positiveNumber } from '@/lib/rules'
+import type { ArtworkEditable } from '@/types'
+import ArtworkImageManager from '@/components/studio/image/ArtworkImageManager.vue'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Artwork {
-  id: string
-  artist_id: string
-  title: string
-  description: string | null
-  price: number
-  image_urls: string[]
-  is_listed: boolean
-  created_at: string
-}
-
-// ── Dependencies ──────────────────────────────────────────────────────────────
-
-const route = useRoute()
 const router = useRouter()
 const { notify } = useNotifier()
+const id = useRouteParams('id')
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// ── Form state ────────────────────────────────────────────────────────────────
 
 const form = ref()
 const managerRef = ref<InstanceType<typeof ArtworkImageManager> | null>(null)
-
-const artwork = ref<Artwork | null>(null)
-const loading = ref(false)
-const saving = ref(false)
-
 const title = ref('')
 const description = ref('')
 const price = ref<number | null>(null)
+const saving = ref(false)
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
-onMounted(async () => {
-  const id = route.params.id as string
-  loading.value = true
-  try {
+const { state: artwork, isLoading } = useAsyncState(
+  async () => {
     const { data, error } = await supabase
       .from('artworks')
       .select('id, artist_id, title, description, price, image_urls, is_listed, created_at')
-      .eq('id', id)
+      .eq('id', id.value as string)
       .single()
 
     if (error) throw error
-
-    artwork.value = data
-    title.value = data.title
-    description.value = data.description ?? ''
-    price.value = data.price
-  } catch (e) {
-    notify({ message: e instanceof Error ? e.message : 'Failed to load artwork', color: 'error' })
-    router.back()
-  } finally {
-    loading.value = false
-  }
-})
+    return data as ArtworkEditable
+  },
+  null,
+  {
+    onSuccess(data) {
+      if (!data) return
+      title.value = data.title
+      description.value = data.description ?? ''
+      price.value = data.price
+    },
+    onError(e) {
+      notify({ message: e instanceof Error ? e.message : 'Failed to load artwork', color: 'error' })
+      router.back()
+    },
+  },
+)
 
 // ── Derived ───────────────────────────────────────────────────────────────────
 
 const adminImageUrl = computed(() => artwork.value?.image_urls[0] ?? null)
 const artistImageUrls = computed(() => artwork.value?.image_urls.slice(1) ?? [])
-
-const COMMISSION_RATE = 0.3
-const artistReceives = computed(() =>
-  price.value ? Math.round(price.value * (1 - COMMISSION_RATE)) : null,
-)
-const formatINR = (n: number) => `₹${n.toLocaleString('en-IN')}`
-
-// ── Validation ────────────────────────────────────────────────────────────────
-
-const required = (v: unknown) => (v !== '' && v !== null && v !== undefined) || 'Required'
-const positiveNumber = (v: unknown) => Number(v) > 0 || 'Must be greater than 0'
+const artistReceives = computed(() => (price.value ? calcArtistReceives(price.value) : null))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -85,7 +64,7 @@ function urlToStoragePath(url: string): string {
   return url.split('/storage/v1/object/public/artworks/')[1] ?? ''
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
+// ── Save ──────────────────────────────────────────────────────────────────────
 
 async function save() {
   if (!artwork.value) return
@@ -98,13 +77,11 @@ async function save() {
   try {
     const { toDelete, toUpload, finalUrls } = await managerRef.value!.getChanges()
 
-    // 1. Delete removed files from storage
     if (toDelete.length) {
       const paths = toDelete.map(urlToStoragePath).filter(Boolean)
       await supabase.storage.from('artworks').remove(paths)
     }
 
-    // 2. Upload new blobs
     for (const { blob, position } of toUpload) {
       const ext = blob.type.split('/')[1] ?? 'jpg'
       const filename = `${crypto.randomUUID()}.${ext}`
@@ -116,10 +93,8 @@ async function save() {
       finalUrls[position] = data.publicUrl
     }
 
-    // 3. Build final clean URL array (nulls should all be filled by now)
     const imageUrls = finalUrls.filter((u): u is string => typeof u === 'string')
 
-    // 4. Single DB update
     const { error } = await supabase
       .from('artworks')
       .update({
@@ -135,19 +110,13 @@ async function save() {
     notify({ message: 'Artwork updated', color: 'success' })
     router.back()
   } catch (e) {
-    // Rollback: remove any files uploaded in this attempt
     if (uploadedPaths.length) {
       await supabase.storage
         .from('artworks')
         .remove(uploadedPaths)
         .catch(() => {})
     }
-
-    console.log(e)
-    notify({
-      message: e instanceof Error ? e.message : 'Failed to save artwork',
-      color: 'error',
-    })
+    notify({ message: e instanceof Error ? e.message : 'Failed to save artwork', color: 'error' })
   } finally {
     saving.value = false
   }
@@ -159,11 +128,9 @@ async function save() {
     <template #prepend>
       <v-btn icon="mdi-arrow-left" variant="text" :disabled="saving" @click="router.back()" />
     </template>
-
     <v-app-bar-title>
       <span class="font-weight-bold">Edit Artwork</span>
     </v-app-bar-title>
-
     <template #append>
       <v-btn
         color="primary"
@@ -171,7 +138,7 @@ async function save() {
         rounded="lg"
         class="text-none mr-3"
         :loading="saving"
-        :disabled="loading"
+        :disabled="isLoading"
         @click="save"
       >
         Update Artwork
@@ -180,7 +147,11 @@ async function save() {
   </v-app-bar>
 
   <v-main>
-    <v-container v-if="loading" class="d-flex justify-center align-center" style="min-height: 60vh">
+    <v-container
+      v-if="isLoading"
+      class="d-flex justify-center align-center"
+      style="min-height: 60vh"
+    >
       <v-progress-circular indeterminate color="primary" />
     </v-container>
 
@@ -268,7 +239,7 @@ async function save() {
                             class="font-weight-bold"
                             :class="artistReceives ? 'text-success' : ''"
                           >
-                            {{ artistReceives ? formatINR(artistReceives) : '—' }}
+                            {{ artistReceives ? formatPrice(artistReceives) : '—' }}
                           </span>
                         </template>
                       </v-list-item>
@@ -277,7 +248,7 @@ async function save() {
                         <v-list-item-title>Society Contribution (30%)</v-list-item-title>
                         <template #append>
                           <span class="font-weight-medium">
-                            {{ price ? formatINR(Math.round(price * 0.3)) : '—' }}
+                            {{ price ? formatPrice(calcCommission(price)) : '—' }}
                           </span>
                         </template>
                       </v-list-item>

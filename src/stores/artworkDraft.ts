@@ -1,22 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-
-export interface ArtworkDraftState {
-  id: string
-  title: string
-  description: string
-  price: number | null
-  height: number | null
-  width: number | null
-  depth: number | null
-  imageUrl: string | null
-}
+import type { ArtworkDraft } from '@/types'
 
 export const useArtworkDraftStore = defineStore(
   'artworkDraft',
   () => {
-    const drafts = ref<ArtworkDraftState[]>([])
+    const drafts = ref<ArtworkDraft[]>([])
     const hydrated = ref(false)
 
     async function syncFromSupabase(artistId: string) {
@@ -43,7 +33,7 @@ export const useArtworkDraftStore = defineStore(
       hydrated.value = true
     }
 
-    function upsertDraft(data: ArtworkDraftState) {
+    function upsertDraft(data: ArtworkDraft) {
       const idx = drafts.value.findIndex((d) => d.id === data.id)
       if (idx !== -1) drafts.value[idx] = data
       else drafts.value.push(data)

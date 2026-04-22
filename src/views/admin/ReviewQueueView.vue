@@ -1,75 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { useDisplay } from 'vuetify'
+import { useAsyncState } from '@vueuse/core'
 import { supabase } from '@/lib/supabaseClient'
 import { useNotifier } from '@/composables/useNotifier'
+import { formatPrice, formatDate } from '@/lib/formatters'
+import type { Submission } from '@/types'
 import ArtworkThumbnail from '@/components/studio/ArtworkThumbnail.vue'
 import SubmissionReviewSheet from '@/components/SubmissionReviewSheet.vue'
 
 const { notify } = useNotifier()
+const { mdAndUp } = useDisplay()
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 
-export interface Submission {
-  id: string
-  artist_id: string
-  title: string
-  description: string | null
-  medium: 'painting' | 'photography' | 'print' | 'sculpture' | 'digital'
-  price: number | null
-  dimensions_cm: { height: number; width: number; depth?: number } | null
-  weight_kg: number | null
-  image_url: string | null
-  notes: string | null
-  created_at: string
-}
-
-// ── State ─────────────────────────────────────────────────────────────────────
-
-const submissions = ref<Submission[]>([])
-const loading = ref(false)
-const selected = ref<Submission | null>(null)
-const showSheet = ref(false)
-
-// ── Table ─────────────────────────────────────────────────────────────────────
-
-const headers = [
-  { title: 'Artwork', key: 'title', align: 'start' as const },
-  { title: 'Price', key: 'price' },
-  { title: 'Submitted', key: 'created_at' },
-  { title: '', key: 'actions', sortable: false, align: 'end' as const },
-]
-
-const formatPrice = (p: number | null) => (p == null ? '—' : `₹${p.toLocaleString('en-IN')}`)
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-
-// ── Data ──────────────────────────────────────────────────────────────────────
-
-async function fetchQueue() {
-  loading.value = true
-  try {
+const { state: submissions, isLoading } = useAsyncState(
+  async () => {
     const { data, error } = await supabase
       .from('upload_requests')
       .select('*')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
+
     if (error) throw error
-    submissions.value = data
-  } catch (e) {
-    notify({ message: e instanceof Error ? e.message : 'Failed to load queue', color: 'error' })
-  } finally {
-    loading.value = false
-  }
-}
+    return data as Submission[]
+  },
+  [],
+  {
+    onError(e) {
+      notify({ message: e instanceof Error ? e.message : 'Failed to load queue', color: 'error' })
+    },
+  },
+)
 
-onMounted(fetchQueue)
+// ── Sheet ─────────────────────────────────────────────────────────────────────
 
-// ── Actions ───────────────────────────────────────────────────────────────────
+const selected = ref<Submission | null>(null)
+const showSheet = ref(false)
 
 function openReview(submission: Submission) {
   selected.value = submission
@@ -83,6 +50,25 @@ function onApproved(id: string) {
 function onRejected(id: string) {
   submissions.value = submissions.value.filter((s) => s.id !== id)
 }
+
+// ── Table headers ─────────────────────────────────────────────────────────────
+
+const titleHeader = { title: 'Artwork', key: 'title', align: 'start' as const }
+const priceHeader = { title: 'Price', key: 'price' }
+const dateHeader = { title: 'Submitted', key: 'created_at' }
+const actionsHeader = {
+  title: '',
+  key: 'actions',
+  sortable: false,
+  align: 'end' as const,
+  width: '60px',
+}
+
+const headers = computed(() =>
+  mdAndUp.value
+    ? [titleHeader, priceHeader, dateHeader, actionsHeader]
+    : [titleHeader, dateHeader, actionsHeader],
+)
 </script>
 
 <template>
@@ -93,9 +79,8 @@ function onRejected(id: string) {
           <v-data-table
             :headers="headers"
             :items="submissions"
-            :loading="loading"
-            :items-per-page="-1"
-            hide-default-footer
+            :loading="isLoading"
+            :items-per-page="10"
             hover
           >
             <template #[`item.title`]="{ item }">

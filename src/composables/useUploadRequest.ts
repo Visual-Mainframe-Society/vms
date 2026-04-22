@@ -59,16 +59,30 @@ export function useUploadRequest() {
       return { id: data.id, imageUrl }
     }
 
-    // ── Insert new row, then upload ────────────────────────────────────────
-    const { data, error } = await supabase.from('upload_requests').insert(row).select('id').single()
+    // ── Insert new row as draft (artist UPDATE policy requires status='draft') ──
+    const { data, error } = await supabase
+      .from('upload_requests')
+      .insert({ ...row, status: 'draft' })
+      .select('id')
+      .single()
     if (error) throw error
 
+    // ── Upload image into the correct path using the real row id ──────────
     let imageUrl: string | null = null
     if (payload.imageFile) {
       imageUrl = await uploadImage(payload.imageFile, artistId, data.id)
-      // Update the row with the new image URL
-      await supabase.from('upload_requests').update({ image_url: imageUrl }).eq('id', data.id)
     }
+
+    // ── Single update: set image_url and promote to final status ──────────
+    // Row is still 'draft' here so the artist UPDATE policy passes.
+    // image_url and status are written atomically, so the row is never
+    // 'pending' without its image_url.
+    const { error: updateError } = await supabase
+      .from('upload_requests')
+      .update({ image_url: imageUrl, status: payload.status })
+      .eq('id', data.id)
+      .eq('artist_id', artistId)
+    if (updateError) throw updateError
 
     return { id: data.id, imageUrl }
   }

@@ -54,7 +54,7 @@ export default defineConfig({
     }),
     vuetify({
       styles: {
-        configFile: 'src/styles/settings.scss',
+        configFile: 'src/lib/settings.scss',
       },
     }),
   ],

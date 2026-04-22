@@ -16,11 +16,11 @@ import {
 
 import '@mdi/font/css/materialdesignicons.css'
 import { md3 } from 'vuetify/blueprints'
-import { theme } from './styles/theme.ts'
+import { theme } from './lib/theme.ts'
 
 import App from './App.vue'
-import router from './router'
-import IconSac from '@/components/icons/vmsIcon.vue'
+import router from './lib/router.ts'
+import VmsIcon from '@/lib/VmsIcon.vue'
 import type { IconProps } from 'vuetify'
 
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
@@ -45,7 +45,7 @@ const vuetify = createVuetify({
     defaultSet: 'mdi',
     sets: {
       custom: {
-        component: (props: IconProps) => h(IconSac, props),
+        component: (props: IconProps) => h(VmsIcon, props),
       },
     },
   },

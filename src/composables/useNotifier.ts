@@ -1,3 +1,4 @@
+import { createGlobalState } from '@vueuse/core'
 import { ref } from 'vue'
 
 interface NotificationOptions {
@@ -6,19 +7,25 @@ interface NotificationOptions {
   timeout?: number
 }
 
-const isActive = ref(false)
-const message = ref('')
-const color = ref<'success' | 'error' | 'info' | 'warning'>('info')
-const timeout = ref(3000)
+// ── Shared global state ───────────────────────────────────────────────────────
 
-const queue = ref<NotificationOptions[]>([])
+const useNotifierState = createGlobalState(() => {
+  const isActive = ref(false)
+  const message = ref('')
+  const color = ref<'success' | 'error' | 'info' | 'warning'>('info')
+  const timeout = ref(3000)
+  const queue = ref<NotificationOptions[]>([])
+  return { isActive, message, color, timeout, queue }
+})
+
+// ── Internal helpers ──────────────────────────────────────────────────────────
 
 function showNext() {
+  const { isActive, message, color, timeout, queue } = useNotifierState()
   if (queue.value.length === 0) {
     isActive.value = false
     return
   }
-
   const next = queue.value.shift()!
   message.value = next.message
   color.value = next.color ?? 'info'
@@ -26,10 +33,13 @@ function showNext() {
   isActive.value = true
 }
 
+// ── Public composable ─────────────────────────────────────────────────────────
+
 export function useNotifier() {
-  const notify = (options: NotificationOptions) => {
+  const { isActive, message, color, timeout, queue } = useNotifierState()
+
+  function notify(options: NotificationOptions) {
     if (isActive.value) {
-      // A notification is already showing — enqueue
       queue.value.push(options)
     } else {
       message.value = options.message
@@ -39,19 +49,10 @@ export function useNotifier() {
     }
   }
 
-  // Called by the snackbar component when it finishes closing
-  const onClosed = () => {
-    // Brief delay so the exit animation completes before the next one appears
+  // Called by AppSnackbar when the snackbar finishes closing
+  function onClosed() {
     setTimeout(showNext, 300)
   }
 
-  return {
-    isActive,
-    message,
-    color,
-    timeout,
-    queue,
-    notify,
-    onClosed,
-  }
+  return { isActive, message, color, timeout, queue, notify, onClosed }
 }

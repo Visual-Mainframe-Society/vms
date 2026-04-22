@@ -1,6 +1,6 @@
 <!-- src/components/icons/IconVMS.vue -->
 <script setup lang="ts">
-import vmsSvg from '@/assets/vms.svg?raw'
+import vmsSvg from '@/lib/vms.svg?raw'
 import { computed } from 'vue'
 
 const props = defineProps<{ size?: number | string }>()

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
-import StateSignedOut from '@/components/StateSignedOut.vue'
-import StateNotAdmin from '@/components/StateNotAdmin.vue'
+import StateSignedOut from '@/components/EmptyStateSignedOut.vue'
+import StateNotAdmin from '@/components/EmptyStateNotAdmin.vue'
 
 const auth = useAuthStore()
 const profile = useProfileStore()

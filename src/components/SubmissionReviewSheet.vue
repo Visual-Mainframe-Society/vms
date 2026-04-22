@@ -2,7 +2,8 @@
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useNotifier } from '@/composables/useNotifier'
-import type { Submission } from '@/views/admin/ReviewQueueView.vue'
+import type { Submission } from '@/types'
+import { formatPrice } from '@/lib/formatters'
 
 // ── Props / emits ──────────────────────────────────────────────────────────────
 
@@ -31,8 +32,6 @@ const canApprove = computed(() => imageFiles.value.length > 0)
 const canReject = computed(() => rejectReason.value.trim().length > 0)
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const formatPrice = (p: number | null) => (p == null ? '—' : `₹${p.toLocaleString('en-IN')}`)
 
 const formatDimensions = (d: Submission['dimensions_cm']) => {
   if (!d) return '—'

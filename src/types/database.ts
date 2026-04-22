@@ -6,7 +6,7 @@ export type Database = {
       profiles: {
         Row: {
           id: string
-          username: string | null
+          username: string
           full_name: string | null
           avatar_url: string | null
           bio: string | null
@@ -16,21 +16,21 @@ export type Database = {
         }
         Insert: {
           id: string
-          username: string | null
+          username: string
           full_name?: string | null
           avatar_url?: string | null
           bio?: string | null
           is_artist?: boolean
-          is_admin?: boolean
+          // is_admin intentionally omitted — set only via server-side functions
           created_at?: string
         }
         Update: {
-          username?: string | null
+          username?: string
           full_name?: string | null
           avatar_url?: string | null
           bio?: string | null
           is_artist?: boolean
-          is_admin?: boolean
+          // is_admin intentionally omitted — set only via server-side functions
         }
       }
       artworks: {
@@ -59,7 +59,7 @@ export type Database = {
           dimensions_cm?: { height: number; width: number; depth?: number } | null
           weight_kg?: number | null
           is_available?: boolean
-          is_approved?: boolean
+          // is_approved intentionally omitted — set only via approve_upload_request
           is_listed?: boolean
           image_urls?: string[]
           created_at?: string
@@ -72,7 +72,7 @@ export type Database = {
           dimensions_cm?: { height: number; width: number; depth?: number } | null
           weight_kg?: number | null
           is_available?: boolean
-          is_approved?: boolean
+          // is_approved intentionally omitted — set only via approve_upload_request
           is_listed?: boolean
           image_urls?: string[]
         }
@@ -87,7 +87,7 @@ export type Database = {
           price: number | null
           dimensions_cm: { height: number; width: number; depth?: number } | null
           weight_kg: number | null
-          image_url: string | null // ← was image_urls: string[]
+          image_url: string | null
           status: 'draft' | 'pending' | 'approved' | 'disapproved'
           notes: string | null
           created_at: string
@@ -102,7 +102,7 @@ export type Database = {
           price?: number | null
           dimensions_cm?: { height: number; width: number; depth?: number } | null
           weight_kg?: number | null
-          image_url?: string | null // ← was image_urls?: string[]
+          image_url?: string | null
           status?: 'draft' | 'pending'
           created_at?: string
         }
@@ -113,12 +113,27 @@ export type Database = {
           price?: number | null
           dimensions_cm?: { height: number; width: number; depth?: number } | null
           weight_kg?: number | null
-          image_url?: string | null // ← was image_urls?: string[]
+          image_url?: string | null
           status?: 'draft' | 'pending' | 'approved' | 'disapproved'
           notes?: string | null
         }
       }
       likes: {
+        Row: {
+          id: string
+          user_id: string
+          artwork_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          artwork_id: string
+          created_at?: string
+        }
+        Update: never
+      }
+      saved_items: {
         Row: {
           id: string
           user_id: string
@@ -216,6 +231,7 @@ export type Database = {
           order_id: string
           artwork_id: string
           price_at_purchase: number
+          // commission_amount intentionally omitted — computed by handle_order_confirmed trigger
         }
         Update: never
       }
@@ -241,6 +257,18 @@ export type Database = {
       is_admin: {
         Args: Record<string, never>
         Returns: boolean
+      }
+      approve_upload_request: {
+        Args: { request_id: string; artwork_image_urls: string[] }
+        Returns: void
+      }
+      handle_new_user: {
+        Args: Record<string, never>
+        Returns: void
+      }
+      handle_order_confirmed: {
+        Args: Record<string, never>
+        Returns: void
       }
     }
   }

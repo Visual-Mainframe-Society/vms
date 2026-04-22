@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, computed, onBeforeUnmount } from 'vue'
+import { computed } from 'vue'
+import { useObjectUrl, useFileDialog } from '@vueuse/core'
 import CropOverlay from './CropOverlay.vue'
-
-const originalSrc = ref<Blob | null>(null)
 
 const props = defineProps<{
   src: string | Blob | null
@@ -18,63 +17,42 @@ const emit = defineEmits<{
   remove: []
 }>()
 
-// ── Refs ───────────────────────────────────────────────────────────────────
-const inputRef = ref<HTMLInputElement | null>(null)
-const cropOverlayOpen = ref(false)
-const objectUrl = ref<string | null>(null)
+// ── Blob → object URL (auto-revoked by VueUse) ────────────────────────────────
+
+const blobSrc = computed(() => (props.src instanceof Blob ? props.src : null))
+const objectUrl = useObjectUrl(blobSrc)
 
 const displayUrl = computed(() => {
   if (!props.src) return null
   return props.src instanceof Blob ? objectUrl.value : props.src
 })
 
-const isUrl = computed(() => typeof props.src === 'string')
 const isBlob = computed(() => props.src instanceof Blob)
 const hasImg = computed(() => props.src !== null)
 
-// ── Object URL management ──────────────────────────────────────────────────
-watch(
-  () => props.src,
-  (src) => {
-    if (objectUrl.value) {
-      URL.revokeObjectURL(objectUrl.value)
-      objectUrl.value = null
-    }
-    if (src instanceof Blob) {
-      objectUrl.value = URL.createObjectURL(src)
-    }
-  },
-  { immediate: true },
-)
+// ── File picker ───────────────────────────────────────────────────────────────
 
-onBeforeUnmount(() => {
-  if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
+const { open: openFilePicker, onChange } = useFileDialog({
+  accept: 'image/*',
+  multiple: false,
 })
 
-// ── Crop result ────────────────────────────────────────────────────────────
+onChange((files) => {
+  const file = files?.[0]
+  if (file) emit('update:src', file)
+})
+
+// ── Crop overlay ──────────────────────────────────────────────────────────────
+
+const cropOverlayOpen = defineModel<boolean>('cropOpen', { default: false })
+const originalSrc = computed(() => (props.src instanceof Blob ? props.src : null))
+
 function onCropDone(blob: Blob) {
   emit('update:src', blob)
-}
-
-// ── File pick ──────────────────────────────────────────────────────────────
-function onFilePicked(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (file) {
-    originalSrc.value = file
-    emit('update:src', file)
-  }
-  ;(e.target as HTMLInputElement).value = ''
 }
 </script>
 
 <template>
-  <!--
-    Dimensions are intentionally NOT set here.
-    The parent v-carousel controls width/height; this card just fills it.
-    Hardcoding px values here caused a mismatch on wide screens where the
-    carousel's internal structure meant the card slightly overflowed and
-    its bottom got clipped by overflow: hidden.
-  -->
   <v-card
     style="width: 100%; height: 100%"
     flat
@@ -82,7 +60,7 @@ function onFilePicked(e: Event) {
   >
     <!-- Readonly -->
     <template v-if="readonly">
-      <v-img v-if="isUrl" :src="src as string" style="width: 100%; height: 100%" cover />
+      <v-img v-if="typeof src === 'string'" :src="src" style="width: 100%; height: 100%" cover />
       <div v-else class="d-flex align-center justify-center fill-height">
         <v-icon icon="mdi-image-off-outline" color="medium-emphasis" size="48" />
       </div>
@@ -96,7 +74,7 @@ function onFilePicked(e: Event) {
           variant="tonal"
           color="secondary"
           size="x-large"
-          @click="inputRef?.click()"
+          @click="openFilePicker()"
         />
       </div>
 
@@ -119,9 +97,7 @@ function onFilePicked(e: Event) {
           style="z-index: 10"
           @click="emit('remove')"
         />
-
         <v-btn
-          v-if="hasImg"
           density="comfortable"
           size="small"
           rounded="lg"
@@ -131,7 +107,6 @@ function onFilePicked(e: Event) {
           @click="emit('swap:left')"
         />
         <v-btn
-          v-if="hasImg"
           density="comfortable"
           size="small"
           rounded="lg"
@@ -140,7 +115,6 @@ function onFilePicked(e: Event) {
           :disabled="!showRight"
           @click="emit('swap:right')"
         />
-
         <v-btn
           v-if="isBlob"
           icon="mdi-crop"
@@ -156,8 +130,5 @@ function onFilePicked(e: Event) {
     </template>
   </v-card>
 
-  <!-- Decoupled crop overlay -->
   <CropOverlay v-model="cropOverlayOpen" :src="originalSrc" @done="onCropDone" />
-
-  <input ref="inputRef" type="file" accept="image/*" style="display: none" @change="onFilePicked" />
 </template>

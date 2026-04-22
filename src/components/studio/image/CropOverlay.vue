@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { useObjectUrl } from '@vueuse/core'
 import { Cropper } from 'vue-advanced-cropper'
 import 'vue-advanced-cropper/dist/style.css'
-import GridStencil from './GridStencil.vue'
+import GridStencil from './CropGridStencil.vue'
 
 const props = defineProps<{
   modelValue: boolean
@@ -14,38 +15,40 @@ const emit = defineEmits<{
   done: [blob: Blob]
 }>()
 
+// ── Blob → object URL (auto-revoked by VueUse) ────────────────────────────────
+
+const blobSrc = computed(() => (props.src instanceof Blob ? props.src : null))
+const blobUrl = useObjectUrl(blobSrc)
+
+const imgUrl = computed(() => {
+  if (!props.modelValue || !props.src) return null
+  return props.src instanceof Blob ? blobUrl.value : props.src
+})
+
+// ── Cropper state ─────────────────────────────────────────────────────────────
+
 const cropperRef = ref<InstanceType<typeof Cropper> | null>(null)
-const imgUrl = ref<string | null>(null)
 const cropperKey = ref(0)
 const cropMode = ref<'free' | '4:5'>('4:5')
 const imageAspect = ref('1 / 1')
 const showGrid = ref(true)
-let blobUrl: string | null = null
 
 const stencilProps = computed(() => (cropMode.value === '4:5' ? { aspectRatio: 4 / 5 } : {}))
 
+// Reset cropper state when dialog opens
 watch(
   () => props.modelValue,
   (open) => {
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl)
-      blobUrl = null
-    }
-    imgUrl.value = null
-
-    if (!open || !props.src) return
-
+    if (!open) return
     cropMode.value = '4:5'
     cropperKey.value++
 
-    const src = props.src
-    const url = src instanceof Blob ? URL.createObjectURL(src) : src
-    if (src instanceof Blob) blobUrl = url
-
+    // Measure natural dimensions for aspect-ratio enforcer
+    const url = imgUrl.value
+    if (!url) return
     const img = new Image()
     img.onload = () => {
       imageAspect.value = `${img.naturalWidth} / ${img.naturalHeight}`
-      imgUrl.value = url
     }
     img.src = url
   },
@@ -54,6 +57,8 @@ watch(
 watch(cropMode, () => {
   cropperKey.value++
 })
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 function close() {
   emit('update:modelValue', false)
@@ -115,7 +120,6 @@ function onDone() {
             <v-btn value="4:5" text="4:5" />
           </v-btn-toggle>
           <v-spacer />
-
           <v-btn
             v-if="$vuetify.display.mdAndDown"
             icon="mdi-check"
